@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>십이지신 합체 게임</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a0a00;
+    font-family: 'Noto Serif KR', serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+    background-image: 
+      radial-gradient(ellipse at 20% 50%, rgba(120,40,0,0.3) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(0,60,80,0.3) 0%, transparent 60%);
+  }
+
+  #game-wrapper {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    position: relative;
+  }
+
+  #left-panel {
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  #right-panel {
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .panel-card {
+    background: rgba(255,220,150,0.05);
+    border: 1px solid rgba(255,200,80,0.2);
+    border-radius: 12px;
+    padding: 16px;
+    color: #f5d87a;
+  }
+
+  .panel-card h3 {
+    font-size: 13px;
+    color: #ffaa33;
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+    border-bottom: 1px solid rgba(255,170,51,0.3);
+    padding-bottom: 6px;
+  }
+
+  #score-display {
+    font-size: 32px;
+    font-weight: 900;
+    color: #ffd700;
+    text-shadow: 0 0 20px rgba(255,215,0,0.5);
+    text-align: center;
+  }
+
+  #score-label {
+    font-size: 11px;
+    color: #aa8833;
+    text-align: center;
+    letter-spacing: 3px;
+    margin-bottom: 4px;
+  }
+
+  #next-display {
+    text-align: center;
+    padding: 10px;
+  }
+
+  #next-animal {
+    font-size: 40px;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  #next-name {
+    font-size: 12px;
+    color: #aaa;
+    letter-spacing: 1px;
+  }
+
+  #current-gan {
+    text-align: center;
+    padding: 8px;
+  }
+
+  #gan-display {
+    font-size: 28px;
+    color: #7fddff;
+    text-shadow: 0 0 15px rgba(127,221,255,0.6);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  #gan-name {
+    font-size: 11px;
+    color: #5599aa;
+    letter-spacing: 1px;
+  }
+
+  .zodiac-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+
+  .zodiac-item {
+    text-align: center;
+    padding: 4px 2px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.03);
+    transition: all 0.3s;
+  }
+
+  .zodiac-item .emoji { font-size: 16px; display: block; }
+  .zodiac-item .zname { font-size: 9px; color: #888; }
+  .zodiac-item .znum { font-size: 8px; color: #555; }
+
+  .zodiac-item.active {
+    background: rgba(255,215,0,0.15);
+    box-shadow: 0 0 8px rgba(255,215,0,0.3);
+  }
+
+  .gan-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .gan-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  .gan-char { color: #7fddff; font-size: 14px; }
+  .gan-desc { color: #668; font-size: 10px; }
+  .gan-num { color: #446; font-size: 10px; }
+
+  #canvas-container {
+    position: relative;
+    border: 2px solid rgba(255,200,80,0.3);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 
+      0 0 40px rgba(255,150,0,0.2),
+      inset 0 0 60px rgba(0,0,0,0.5);
+  }
+
+  #gameCanvas {
+    display: block;
+    background: linear-gradient(180deg, #0d0500 0%, #1a0a00 40%, #0a0500 100%);
+  }
+
+  #drop-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    cursor: crosshair;
+  }
+
+  #mission-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 100;
+    border-radius: 6px;
+  }
+
+  #mission-overlay.show { display: flex; }
+
+  .mission-title {
+    font-size: 36px;
+    color: #ffd700;
+    text-shadow: 0 0 30px rgba(255,215,0,0.8);
+    animation: pulse 0.5s infinite alternate;
+    margin-bottom: 10px;
+  }
+
+  .mission-score {
+    font-size: 24px;
+    color: #ff8844;
+  }
+
+  .mission-detail {
+    font-size: 14px;
+    color: #aaa;
+    margin-top: 8px;
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  @keyframes pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.05); }
+  }
+
+  #combo-display {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ff6644;
+    font-size: 20px;
+    font-weight: 900;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s;
+    z-index: 20;
+    text-shadow: 0 0 10px rgba(255,100,68,0.8);
+    white-space: nowrap;
+  }
+
+  .combo-float {
+    position: absolute;
+    pointer-events: none;
+    font-size: 18px;
+    font-weight: 900;
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255,215,0,0.8);
+    animation: floatUp 1.2s ease-out forwards;
+    z-index: 50;
+  }
+
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-80px) scale(1.5); }
+  }
+
+  #game-over {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    border-radius: 6px;
+  }
+
+  #game-over.show { display: flex; }
+
+  #game-over h2 {
+    font-size: 40px;
+    color: #ff4444;
+    text-shadow: 0 0 30px rgba(255,68,68,0.8);
+    margin-bottom: 20px;
+  }
+
+  #final-score {
+    font-size: 28px;
+    color: #ffd700;
+    margin-bottom: 30px;
+  }
+
+  #restart-btn {
+    background: linear-gradient(135deg, #8b3a00, #c85a00);
+    border: 1px solid #ff8844;
+    color: #ffd700;
+    padding: 12px 32px;
+    font-size: 16px;
+    font-family: 'Noto Serif KR', serif;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: all 0.3s;
+  }
+
+  #restart-btn:hover {
+    background: linear-gradient(135deg, #c85a00, #ff8844);
+    box-shadow: 0 0 20px rgba(255,136,68,0.5);
+  }
+
+  #mission-log {
+    max-height: 160px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  #mission-log::-webkit-scrollbar { width: 4px; }
+  #mission-log::-webkit-scrollbar-track { background: transparent; }
+  #mission-log::-webkit-scrollbar-thumb { background: rgba(255,200,80,0.3); border-radius: 2px; }
+
+  .log-item {
+    font-size: 10px;
+    color: #886633;
+    padding: 3px 6px;
+    border-left: 2px solid rgba(255,200,80,0.3);
+    line-height: 1.4;
+  }
+
+  .log-item.mission { color: #ffaa44; border-left-color: #ffaa44; }
+
+  #danger-bar-container {
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  #danger-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #44ff44, #ffff44, #ff4444);
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+
+  .hint-text {
+    font-size: 10px;
+    color: #556;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <!-- Left Panel -->
+  <div id="left-panel">
+    <div class="panel-card">
+      <div id="score-label">점 수</div>
+      <div id="score-display">0</div>
+      <div id="danger-bar-container">
+        <div id="danger-bar"></div>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <h3>다 음</h3>
+      <div id="next-display">
+        <span id="next-animal">🐭</span>
+        <div id="next-name">자 (子)</div>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <h3>현재 천간</h3>
+      <div id="current-gan">
+        <span id="gan-display">甲</span>
+        <div id="gan-name">갑 · 1번째</div>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <h3>미션 기록</h3>
+      <div id="mission-log">
+        <div class="log-item">합체하면 천간이 쌓입니다...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div id="canvas-container">
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <canvas id="drop-line" width="400" height="600"></canvas>
+    <div id="mission-overlay">
+      <div class="mission-title">🎊 미션 성공! 🎊</div>
+      <div class="mission-score" id="mission-score-text"></div>
+      <div class="mission-detail" id="mission-detail-text"></div>
+    </div>
+    <div id="combo-display"></div>
+    <div id="game-over">
+      <h2>⚠️ 게임 오버</h2>
+      <div id="final-score"></div>
+      <button id="restart-btn" onclick="restartGame()">다시 시작</button>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div id="right-panel">
+    <div class="panel-card">
+      <h3>십이지신</h3>
+      <div class="zodiac-grid" id="zodiac-grid"></div>
+    </div>
+
+    <div class="panel-card">
+      <h3>천간 (十干)</h3>
+      <div class="gan-list" id="gan-list"></div>
+    </div>
+
+    <div class="panel-card">
+      <h3>도움말</h3>
+      <p class="hint-text">
+        <span style="color:#ffaa33">[ 마우스 ]</span><br>
+        이동: 조준 / 클릭: 드롭<br><br>
+        <span style="color:#ffaa33">[ 키보드 ]</span><br>
+        ← → : 좌우 이동<br>
+        Space / ↓ : 드롭<br><br>
+        같은 동물끼리 합치면 <span style="color:#7fddff">천간</span>이 쌓이고,<br>
+        <span style="color:#ffd700">천간+지지 조합</span> 완성 시 미션 성공!
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================
+// DATA
+// =====================
+const ZODIAC = [
+  { id: 0, name: '자', hanja: '子', animal: '쥐', emoji: '🐭', radius: 18, color: '#888', mergeScore: 5 },
+  { id: 1, name: '축', hanja: '丑', animal: '소', emoji: '🐮', radius: 24, color: '#8B6914', mergeScore: 10 },
+  { id: 2, name: '인', hanja: '寅', animal: '호랑이', emoji: '🐯', radius: 30, color: '#FF8C00', mergeScore: 18 },
+  { id: 3, name: '묘', hanja: '卯', animal: '토끼', emoji: '🐰', radius: 36, color: '#FFB6C1', mergeScore: 28 },
+  { id: 4, name: '진', hanja: '辰', animal: '용', emoji: '🐲', radius: 43, color: '#228B22', mergeScore: 40 },
+  { id: 5, name: '사', hanja: '巳', animal: '뱀', emoji: '🐍', radius: 50, color: '#9370DB', mergeScore: 55 },
+  { id: 6, name: '오', hanja: '午', animal: '말', emoji: '🐴', radius: 57, color: '#D4842A', mergeScore: 72 },
+  { id: 7, name: '미', hanja: '未', animal: '양', emoji: '🐑', radius: 64, color: '#E8E8C8', mergeScore: 90 },
+  { id: 8, name: '신', hanja: '申', animal: '원숭이', emoji: '🐵', radius: 71, color: '#DAA520', mergeScore: 110 },
+  { id: 9, name: '유', hanja: '酉', animal: '닭', emoji: '🐔', radius: 78, color: '#FF6347', mergeScore: 132 },
+  { id: 10, name: '술', hanja: '戌', animal: '개', emoji: '🐶', radius: 85, color: '#8B4513', mergeScore: 156 },
+  { id: 11, name: '해', hanja: '亥', animal: '돼지', emoji: '🐷', radius: 90, color: '#FFB6C1', mergeScore: 200 },
+];
+
+const GAN = [
+  { char: '甲', name: '갑', num: 1, element: '木', color: '#66ff66' },
+  { char: '乙', name: '을', num: 2, element: '木', color: '#88ff44' },
+  { char: '丙', name: '병', num: 3, element: '火', color: '#ff6644' },
+  { char: '丁', name: '정', num: 4, element: '火', color: '#ff4422' },
+  { char: '戊', name: '무', num: 5, element: '土', color: '#ddaa44' },
+  { char: '己', name: '기', num: 6, element: '土', color: '#ccaa33' },
+  { char: '庚', name: '경', num: 7, element: '金', color: '#aaddff' },
+  { char: '辛', name: '신', num: 8, element: '金', color: '#88ccff' },
+  { char: '壬', name: '임', num: 9, element: '水', color: '#4488ff' },
+  { char: '癸', name: '계', num: 10, element: '水', color: '#2266ff' },
+];
+
+// 미션 정의: 천간idx(0-9) + 지지idx(0-11) → 특정 동물 N마리 소환
+const MISSIONS = [
+  { gan: 2, ji: 6, name: '병오(丙午)', desc: '화기(火氣)의 말', animal: 6, count: 3, bonus: 2000, emoji: '🔥🐴' },
+  { gan: 0, ji: 0, name: '갑자(甲子)', desc: '목기(木氣)의 쥐', animal: 0, count: 4, bonus: 1500, emoji: '🌿🐭' },
+  { gan: 5, ji: 4, name: '기진(己辰)', desc: '토기(土氣)의 용', animal: 4, count: 2, bonus: 1800, emoji: '🌍🐲' },
+  { gan: 8, ji: 9, name: '임유(壬酉)', desc: '수기(水氣)의 닭', animal: 9, count: 3, bonus: 2200, emoji: '💧🐔' },
+  { gan: 6, ji: 7, name: '경미(庚未)', desc: '금기(金氣)의 양', animal: 7, count: 3, bonus: 2500, emoji: '⚙️🐑' },
+];
+
+// =====================
+// MATTER.JS SETUP
+// =====================
+const { Engine, Render, Runner, Bodies, Body, World, Events, Composite } = Matter;
+
+const CANVAS_W = 400;
+const CANVAS_H = 600;
+const WALL_T = 20;
+const DROP_Y = 60;
+
+let engine, world, runner;
+let balls = [];
+let score = 0;
+let currentZodiacIdx = 0;
+let nextZodiacIdx = 0;
+let ganStack = []; // accumulated gan chars (indices)
+let ganIdx = 0; // current gan index (0-9 cycling)
+let mergeCount = 0;
+let isDropping = false;
+let mouseX = CANVAS_W / 2;
+let gameOver = false;
+let missionActive = false;
+let missionTimer = null;
+let countByZodiac = new Array(12).fill(0);
+
+// Canvas for drawing
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const dropCanvas = document.getElementById('drop-line');
+const dropCtx = dropCanvas.getContext('2d');
+
+function initPhysics() {
+  engine = Engine.create({ gravity: { y: 1.5 } });
+  world = engine.world;
+
+  // Walls
+  const ground = Bodies.rectangle(CANVAS_W/2, CANVAS_H + WALL_T/2, CANVAS_W, WALL_T, { isStatic: true, label: 'ground' });
+  const wallL = Bodies.rectangle(-WALL_T/2, CANVAS_H/2, WALL_T, CANVAS_H*2, { isStatic: true, label: 'wall' });
+  const wallR = Bodies.rectangle(CANVAS_W + WALL_T/2, CANVAS_H/2, WALL_T, CANVAS_H*2, { isStatic: true, label: 'wall' });
+  World.add(world, [ground, wallL, wallR]);
+
+  Events.on(engine, 'collisionStart', handleCollision);
+
+  runner = Runner.create();
+  Runner.run(runner, engine);
+}
+
+function handleCollision(event) {
+  const pairs = event.pairs;
+  for (let pair of pairs) {
+    const { bodyA, bodyB } = pair;
+    if (bodyA.label && bodyB.label &&
+        bodyA.label.startsWith('zodiac_') && bodyB.label.startsWith('zodiac_')) {
+      const idxA = parseInt(bodyA.label.split('_')[1]);
+      const idxB = parseInt(bodyB.label.split('_')[1]);
+      if (idxA === idxB && !bodyA.merging && !bodyB.merging) {
+        bodyA.merging = true;
+        bodyB.merging = true;
+        scheduleMerge(bodyA, bodyB, idxA);
+      }
+    }
+  }
+}
+
+function scheduleMerge(bodyA, bodyB, zodiacIdx) {
+  setTimeout(() => {
+    if (!balls.includes(bodyA) && !balls.includes(bodyB)) return; // already removed
+    const posA = bodyA.position;
+    const posB = bodyB.position;
+    const midX = (posA.x + posB.x) / 2;
+    const midY = (posA.y + posB.y) / 2;
+
+    World.remove(world, bodyA);
+    World.remove(world, bodyB);
+    balls = balls.filter(b => b !== bodyA && b !== bodyB);
+
+    countByZodiac[zodiacIdx] = Math.max(0, countByZodiac[zodiacIdx] - 2);
+
+    const mergeScore = ZODIAC[zodiacIdx].mergeScore;
+    addScore(mergeScore, midX, midY);
+    showParticles(midX, midY, ZODIAC[zodiacIdx].color);
+
+    // 천간 진행
+    ganIdx = (ganIdx + 1) % 10;
+    ganStack.push(ganIdx);
+    updateGanDisplay();
+
+    // 다음 동물 (해(11) 합치면 사라짐 = 최고 등급)
+    if (zodiacIdx < 11) {
+      const newIdx = zodiacIdx + 1;
+      spawnBall(midX, midY, newIdx, true);
+      countByZodiac[newIdx]++;
+    }
+
+    mergeCount++;
+    checkMission(zodiacIdx + 1, midX, midY);
+    checkMissionTrigger();
+  }, 50);
+}
+
+function spawnBall(x, y, zodiacIdx, fromMerge = false) {
+  const z = ZODIAC[zodiacIdx];
+  const ball = Bodies.circle(x, y, z.radius, {
+    restitution: 0.3,
+    friction: 0.5,
+    density: 0.002,
+    label: `zodiac_${zodiacIdx}`,
+  });
+  ball.zodiacIdx = zodiacIdx;
+  if (fromMerge) {
+    Body.setVelocity(ball, { x: (Math.random()-0.5)*2, y: -3 });
+  }
+  World.add(world, ball);
+  balls.push(ball);
+  return ball;
+}
+
+function dropBall(x) {
+  if (isDropping || gameOver || missionActive) return;
+  isDropping = true;
+
+  const z = ZODIAC[currentZodiacIdx];
+  const clampedX = Math.max(z.radius + 5, Math.min(CANVAS_W - z.radius - 5, x));
+  const ball = spawnBall(clampedX, DROP_Y, currentZodiacIdx);
+  countByZodiac[currentZodiacIdx]++;
+  Body.setVelocity(ball, { x: 0, y: 5 });
+
+  currentZodiacIdx = nextZodiacIdx;
+  nextZodiacIdx = Math.floor(Math.random() * 6); // drop 0~5
+  updateNextDisplay();
+  updateZodiacGrid();
+
+  setTimeout(() => { isDropping = false; }, 600);
+}
+
+// =====================
+// MISSION CHECK
+// =====================
+function checkMissionTrigger() {
+  if (ganStack.length < 2) return;
+  const lastGan = ganStack[ganStack.length - 1];
+
+  for (let mission of MISSIONS) {
+    if (lastGan === mission.gan) {
+      // Check if enough of that animal on field
+      const count = countBallsOnField(mission.animal);
+      if (count >= mission.count) {
+        triggerMission(mission, count);
+        return;
+      }
+    }
+  }
+}
+
+function countBallsOnField(zodiacIdx) {
+  return balls.filter(b => b.zodiacIdx === zodiacIdx).length;
+}
+
+function triggerMission(mission, count) {
+  missionActive = true;
+  const bonus = mission.bonus + count * 100;
+  addScore(bonus, CANVAS_W/2, CANVAS_H/2);
+
+  document.getElementById('mission-score-text').textContent = `+${bonus.toLocaleString()} 점 획득!`;
+  document.getElementById('mission-detail-text').innerHTML =
+    `${mission.emoji} ${mission.name} 달성!<br>${mission.desc}<br>${ZODIAC[mission.animal].emoji} ${ZODIAC[mission.animal].animal} ${count}마리 소환!`;
+
+  document.getElementById('mission-overlay').classList.add('show');
+  addLog(`🎊 ${mission.name} 미션! +${bonus}점`, true);
+
+  // Spawn extra animals for the mission
+  for (let i = 0; i < mission.count; i++) {
+    setTimeout(() => {
+      const rx = 60 + Math.random() * 280;
+      spawnBall(rx, DROP_Y + i * 30, mission.animal, true);
+      countByZodiac[mission.animal]++;
+    }, i * 200);
+  }
+
+  if (missionTimer) clearTimeout(missionTimer);
+  missionTimer = setTimeout(() => {
+    document.getElementById('mission-overlay').classList.remove('show');
+    missionActive = false;
+    ganStack = [];
+  }, 3000);
+}
+
+function checkMission(newZodiacIdx, x, y) {
+  // simple visual feedback
+  if (newZodiacIdx > 0) {
+    const z = ZODIAC[newZodiacIdx - 1];
+    addLog(`${z.emoji} ${z.animal} + ${z.emoji} → ${ZODIAC[Math.min(newZodiacIdx, 11)].emoji}`);
+  }
+}
+
+// =====================
+// DRAWING
+// =====================
+function drawGame() {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Danger zone line
+  ctx.strokeStyle = 'rgba(255,50,50,0.3)';
+  ctx.setLineDash([6, 4]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, DROP_Y + 20);
+  ctx.lineTo(CANVAS_W, DROP_Y + 20);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Draw balls
+  for (let ball of balls) {
+    const z = ZODIAC[ball.zodiacIdx];
+    const pos = ball.position;
+    const angle = ball.angle;
+
+    ctx.save();
+    ctx.translate(pos.x, pos.y);
+    ctx.rotate(angle);
+
+    // Glow
+    const grd = ctx.createRadialGradient(0, 0, z.radius * 0.2, 0, 0, z.radius);
+    grd.addColorStop(0, hexToRgba(z.color, 0.8));
+    grd.addColorStop(1, hexToRgba(z.color, 0.3));
+    ctx.beginPath();
+    ctx.arc(0, 0, z.radius, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+    ctx.strokeStyle = hexToRgba(z.color, 0.8);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Emoji
+    ctx.font = `${z.radius * 1.1}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(z.emoji, 0, 2);
+
+    ctx.restore();
+  }
+
+  // Draw current ball ghost at mouse
+  if (!isDropping && !gameOver && !missionActive) {
+    const z = ZODIAC[currentZodiacIdx];
+    const clampedX = Math.max(z.radius + 5, Math.min(CANVAS_W - z.radius - 5, mouseX));
+    ctx.globalAlpha = 0.5;
+    ctx.font = `${z.radius * 1.1}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(z.emoji, clampedX, DROP_Y);
+    ctx.globalAlpha = 1;
+  }
+
+  // Danger bar
+  const topmost = balls.reduce((min, b) => Math.min(min, b.position.y - ZODIAC[b.zodiacIdx].radius), CANVAS_H);
+  const danger = Math.max(0, Math.min(100, (DROP_Y + 60 - topmost) / (DROP_Y + 60 - DROP_Y) * 100));
+  document.getElementById('danger-bar').style.width = Math.max(0, Math.min(100, (1 - (topmost - DROP_Y) / (CANVAS_H - DROP_Y)) * 100)) + '%';
+
+  // Game over check
+  if (!gameOver && balls.some(b => b.position.y - ZODIAC[b.zodiacIdx].radius < DROP_Y + 10 && b.speed < 0.5)) {
+    triggerGameOver();
+  }
+
+  requestAnimationFrame(drawGame);
+}
+
+// Drop line
+function drawDropLine(x) {
+  dropCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+  if (isDropping || gameOver || missionActive) return;
+  const z = ZODIAC[currentZodiacIdx];
+  const clampedX = Math.max(z.radius + 5, Math.min(CANVAS_W - z.radius - 5, x));
+
+  dropCtx.strokeStyle = 'rgba(255,220,150,0.2)';
+  dropCtx.setLineDash([4, 6]);
+  dropCtx.lineWidth = 1;
+  dropCtx.beginPath();
+  dropCtx.moveTo(clampedX, DROP_Y + z.radius);
+  dropCtx.lineTo(clampedX, CANVAS_H);
+  dropCtx.stroke();
+  dropCtx.setLineDash([]);
+}
+
+// =====================
+// SCORE & UI
+// =====================
+function addScore(amount, x, y) {
+  score += amount;
+  document.getElementById('score-display').textContent = score.toLocaleString();
+
+  if (x && y) {
+    const container = document.getElementById('canvas-container');
+    const el = document.createElement('div');
+    el.className = 'combo-float';
+    el.textContent = `+${amount}`;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 1200);
+  }
+}
+
+function updateGanDisplay() {
+  const g = GAN[ganIdx];
+  document.getElementById('gan-display').textContent = g.char;
+  document.getElementById('gan-display').style.color = g.color;
+  document.getElementById('gan-name').textContent = `${g.name} · ${g.num}번째`;
+}
+
+function updateNextDisplay() {
+  const z = ZODIAC[nextZodiacIdx];
+  document.getElementById('next-animal').textContent = z.emoji;
+  document.getElementById('next-name').textContent = `${z.name}(${z.hanja}) · ${z.animal}`;
+}
+
+function updateZodiacGrid() {
+  const grid = document.getElementById('zodiac-grid');
+  grid.innerHTML = '';
+  ZODIAC.forEach((z, i) => {
+    const div = document.createElement('div');
+    div.className = 'zodiac-item' + (i === currentZodiacIdx ? ' active' : '');
+    div.innerHTML = `<span class="emoji">${z.emoji}</span><span class="zname">${z.name}</span><span class="znum">${z.hanja}</span>`;
+    grid.appendChild(div);
+  });
+}
+
+function buildGanList() {
+  const list = document.getElementById('gan-list');
+  list.innerHTML = '';
+  GAN.forEach(g => {
+    const div = document.createElement('div');
+    div.className = 'gan-item';
+    div.innerHTML = `<span class="gan-char" style="color:${g.color}">${g.char}</span><span class="gan-desc">${g.name}·${g.element}</span><span class="gan-num">${g.num}</span>`;
+    list.appendChild(div);
+  });
+}
+
+function addLog(text, isMission = false) {
+  const log = document.getElementById('mission-log');
+  const item = document.createElement('div');
+  item.className = 'log-item' + (isMission ? ' mission' : '');
+  item.textContent = text;
+  log.insertBefore(item, log.firstChild);
+  while (log.children.length > 20) log.removeChild(log.lastChild);
+}
+
+// =====================
+// PARTICLES
+// =====================
+function showParticles(x, y, color) {
+  // Simple canvas burst
+  for (let i = 0; i < 8; i++) {
+    setTimeout(() => {
+      ctx.save();
+      const angle = (i / 8) * Math.PI * 2;
+      const dist = 20 + Math.random() * 20;
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(angle)*dist, y + Math.sin(angle)*dist, 4, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }, i * 10);
+  }
+}
+
+function triggerGameOver() {
+  gameOver = true;
+  document.getElementById('final-score').textContent = `최종 점수: ${score.toLocaleString()}점`;
+  document.getElementById('game-over').classList.add('show');
+  Runner.stop(runner);
+}
+
+function restartGame() {
+  // Reset
+  World.clear(world);
+  Engine.clear(engine);
+  balls = [];
+  score = 0;
+  ganIdx = 0;
+  ganStack = [];
+  mergeCount = 0;
+  isDropping = false;
+  gameOver = false;
+  missionActive = false;
+  countByZodiac = new Array(12).fill(0);
+
+  document.getElementById('score-display').textContent = '0';
+  document.getElementById('game-over').classList.remove('show');
+  document.getElementById('mission-overlay').classList.remove('show');
+  document.getElementById('mission-log').innerHTML = '<div class="log-item">합체하면 천간이 쌓입니다...</div>';
+
+  currentZodiacIdx = Math.floor(Math.random() * 5);
+  nextZodiacIdx = Math.floor(Math.random() * 5);
+
+  initPhysics();
+  updateNextDisplay();
+  updateZodiacGrid();
+  updateGanDisplay();
+
+  Runner.run(runner, engine);
+}
+
+// =====================
+// INPUT
+// =====================
+dropCanvas.addEventListener('mousemove', (e) => {
+  const rect = dropCanvas.getBoundingClientRect();
+  mouseX = e.clientX - rect.left;
+  drawDropLine(mouseX);
+});
+
+dropCanvas.addEventListener('click', (e) => {
+  const rect = dropCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  dropBall(x);
+});
+
+dropCanvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const rect = dropCanvas.getBoundingClientRect();
+  mouseX = e.touches[0].clientX - rect.left;
+  drawDropLine(mouseX);
+}, { passive: false });
+
+dropCanvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  const rect = dropCanvas.getBoundingClientRect();
+  const x = e.changedTouches[0].clientX - rect.left;
+  dropBall(x);
+});
+
+// 키보드 조작
+const KEY_STEP = 10;
+document.addEventListener('keydown', (e) => {
+  if (gameOver || missionActive) return;
+  if (e.key === 'ArrowLeft') {
+    mouseX = Math.max(0, mouseX - KEY_STEP);
+    drawDropLine(mouseX);
+  } else if (e.key === 'ArrowRight') {
+    mouseX = Math.min(CANVAS_W, mouseX + KEY_STEP);
+    drawDropLine(mouseX);
+  } else if (e.key === ' ' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    dropBall(mouseX);
+  }
+});
+
+// =====================
+// UTILS
+// =====================
+function hexToRgba(hex, alpha) {
+  if (!hex || hex.length < 4) return `rgba(128,128,128,${alpha})`;
+  let r, g, b;
+  if (hex.length === 4) {
+    r = parseInt(hex[1]+hex[1],16);
+    g = parseInt(hex[2]+hex[2],16);
+    b = parseInt(hex[3]+hex[3],16);
+  } else {
+    r = parseInt(hex.slice(1,3),16);
+    g = parseInt(hex.slice(3,5),16);
+    b = parseInt(hex.slice(5,7),16);
+  }
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// =====================
+// INIT
+// =====================
+function init() {
+  currentZodiacIdx = Math.floor(Math.random() * 5);
+  nextZodiacIdx = Math.floor(Math.random() * 5);
+  initPhysics();
+  buildGanList();
+  updateNextDisplay();
+  updateZodiacGrid();
+  updateGanDisplay();
+  drawGame();
+}
+
+init();
+</script>
+</body>
+</html>
