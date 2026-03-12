@@ -604,8 +604,12 @@ function scheduleMerge(bodyA, bodyB, zodiacIdx) {
       spawnBall(midX, midY, newIdx, true);
       countByZodiac[newIdx]++;
     }
+    // 합체 후 미션 체크
+    checkMissionTrigger();
 
     mergeCount++;
+    // 합체 후 미션 체크
+    checkMissionTrigger();
     checkMission(zodiacIdx + 1, midX, midY);
   }, 50);
 }
@@ -639,7 +643,7 @@ function dropBall(x) {
   Body.setVelocity(ball, { x: 0, y: 5 });
 
   // 드롭 직후 미션 조건 체크
-  checkMissionTrigger(droppedZodiac);
+  //checkMissionTrigger(droppedZodiac);
 
   currentZodiacIdx = nextZodiacIdx;
   nextZodiacIdx = Math.floor(Math.random() * 6); // drop 0~5
@@ -657,7 +661,7 @@ function checkMissionTrigger(droppedZodiac) {
     const mission = MISSIONS[i];
     if (clearedMissions.has(i)) continue;
     // 현재 천간 일치 + 드롭한 동물이 미션 대상 + 필드 수 충족
-    if (ganIdx === mission.gan && droppedZodiac === mission.animal) {
+    if (ganIdx === mission.gan) {
       const count = countBallsOnField(mission.animal);
       if (count >= mission.count) {
         triggerMission(mission, i, count);
