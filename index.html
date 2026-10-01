@@ -1,1146 +1,197 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>십이지신 수박 게임</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>개인정보 처리방침 — WesternDuel</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&display=swap');
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: #1a0a00;
-    font-family: 'Noto Serif KR', serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    overflow: hidden;
-    background-image: 
-      radial-gradient(ellipse at 20% 50%, rgba(120,40,0,0.3) 0%, transparent 60%),
-      radial-gradient(ellipse at 80% 20%, rgba(0,60,80,0.3) 0%, transparent 60%);
+  :root{
+    --bg:#f7f4ef; --fg:#241a12; --mut:#6b5a4a; --line:#e0d7ca; --card:#fffdfa; --accent:#8a4a1e;
   }
-
-  #game-wrapper {
-    display: flex;
-    gap: 20px;
-    align-items: flex-start;
-    position: relative;
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#17110d; --fg:#ece2d6; --mut:#a89684; --line:#332821; --card:#1e1712; --accent:#e0a45c; }
   }
-
-  #left-panel {
-    width: 240px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  #right-panel {
-    width: 240px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .panel-card {
-    background: rgba(255,220,150,0.05);
-    border: 1px solid rgba(255,200,80,0.2);
-    border-radius: 12px;
-    padding: 16px;
-    color: #f5d87a;
-  }
-
-  .panel-card h3 {
-    font-size: 13px;
-    color: #ffaa33;
-    margin-bottom: 10px;
-    letter-spacing: 2px;
-    border-bottom: 1px solid rgba(255,170,51,0.3);
-    padding-bottom: 6px;
-  }
-
-  #score-display {
-    font-size: 32px;
-    font-weight: 900;
-    color: #ffd700;
-    text-shadow: 0 0 20px rgba(255,215,0,0.5);
-    text-align: center;
-  }
-
-  #score-label {
-    font-size: 11px;
-    color: #aa8833;
-    text-align: center;
-    letter-spacing: 3px;
-    margin-bottom: 4px;
-  }
-
-  #next-display {
-    text-align: center;
-    padding: 10px;
-  }
-
-  #next-animal {
-    font-size: 40px;
-    display: block;
-    margin-bottom: 4px;
-  }
-
-  #next-name {
-    font-size: 12px;
-    color: #aaa;
-    letter-spacing: 1px;
-  }
-
-  #current-gan {
-    text-align: center;
-    padding: 8px;
-  }
-
-  #gan-display {
-    font-size: 28px;
-    color: #7fddff;
-    text-shadow: 0 0 15px rgba(127,221,255,0.6);
-    display: block;
-    margin-bottom: 4px;
-  }
-
-  #gan-name {
-    font-size: 11px;
-    color: #5599aa;
-    letter-spacing: 1px;
-  }
-
-  .zodiac-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
-  }
-
-  .zodiac-item {
-    text-align: center;
-    padding: 4px 2px;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.03);
-    transition: all 0.3s;
-  }
-
-  .zodiac-item .emoji { font-size: 16px; display: block; }
-  .zodiac-item .zname { font-size: 9px; color: #888; }
-  .zodiac-item .znum { font-size: 8px; color: #555; }
-
-  .zodiac-item.active {
-    background: rgba(255,215,0,0.15);
-    box-shadow: 0 0 8px rgba(255,215,0,0.3);
-  }
-
-  .gan-list {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    max-height: 140px;
-    overflow-y: auto;
-  }
-
-  .gan-list::-webkit-scrollbar { width: 4px; }
-  .gan-list::-webkit-scrollbar-track { background: transparent; }
-  .gan-list::-webkit-scrollbar-thumb { background: rgba(255,200,80,0.3); border-radius: 2px; }
-
-  .gan-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 3px 6px;
-    border-radius: 4px;
-    font-size: 11px;
-  }
-
-  .gan-char { color: #7fddff; font-size: 14px; }
-  .gan-desc { color: #668; font-size: 10px; }
-  .gan-num { color: #446; font-size: 10px; }
-
-  #canvas-container {
-    position: relative;
-    border: 2px solid rgba(255,200,80,0.3);
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 
-      0 0 40px rgba(255,150,0,0.2),
-      inset 0 0 60px rgba(0,0,0,0.5);
-  }
-
-  #gameCanvas {
-    display: block;
-    background: linear-gradient(180deg, #0d0500 0%, #1a0a00 40%, #0a0500 100%);
-  }
-
-  #drop-line {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 10;
-    cursor: crosshair;
-  }
-
-  #mission-overlay {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.85);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
-    z-index: 100;
-    border-radius: 6px;
-  }
-
-  #mission-overlay.show { display: flex; }
-
-  .mission-title {
-    font-size: 36px;
-    color: #ffd700;
-    text-shadow: 0 0 30px rgba(255,215,0,0.8);
-    animation: pulse 0.5s infinite alternate;
-    margin-bottom: 10px;
-  }
-
-  .mission-score {
-    font-size: 24px;
-    color: #ff8844;
-  }
-
-  .mission-detail {
-    font-size: 14px;
-    color: #aaa;
-    margin-top: 8px;
-    text-align: center;
-    line-height: 1.8;
-  }
-
-  @keyframes pulse {
-    from { transform: scale(1); }
-    to { transform: scale(1.05); }
-  }
-
-  #combo-display {
-    position: absolute;
-    top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #ff6644;
-    font-size: 20px;
-    font-weight: 900;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.5s;
-    z-index: 20;
-    text-shadow: 0 0 10px rgba(255,100,68,0.8);
-    white-space: nowrap;
-  }
-
-  .combo-float {
-    position: absolute;
-    pointer-events: none;
-    font-size: 18px;
-    font-weight: 900;
-    color: #ffd700;
-    text-shadow: 0 0 10px rgba(255,215,0,0.8);
-    animation: floatUp 1.2s ease-out forwards;
-    z-index: 50;
-  }
-
-  @keyframes floatUp {
-    0% { opacity: 1; transform: translateY(0) scale(1); }
-    100% { opacity: 0; transform: translateY(-80px) scale(1.5); }
-  }
-
-  #game-over {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.9);
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 200;
-    border-radius: 6px;
-  }
-
-  #game-over.show { display: flex; }
-
-  #game-over h2 {
-    font-size: 40px;
-    color: #ff4444;
-    text-shadow: 0 0 30px rgba(255,68,68,0.8);
-    margin-bottom: 20px;
-  }
-
-  #final-score {
-    font-size: 28px;
-    color: #ffd700;
-    margin-bottom: 30px;
-  }
-
-  #restart-btn {
-    background: linear-gradient(135deg, #8b3a00, #c85a00);
-    border: 1px solid #ff8844;
-    color: #ffd700;
-    padding: 12px 32px;
-    font-size: 16px;
-    font-family: 'Noto Serif KR', serif;
-    border-radius: 8px;
-    cursor: pointer;
-    letter-spacing: 2px;
-    transition: all 0.3s;
-  }
-
-  #restart-btn:hover {
-    background: linear-gradient(135deg, #c85a00, #ff8844);
-    box-shadow: 0 0 20px rgba(255,136,68,0.5);
-  }
-
-  #mission-log {
-    max-height: 160px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  #mission-log::-webkit-scrollbar { width: 4px; }
-  #mission-log::-webkit-scrollbar-track { background: transparent; }
-  #mission-log::-webkit-scrollbar-thumb { background: rgba(255,200,80,0.3); border-radius: 2px; }
-
-  .log-item {
-    font-size: 10px;
-    color: #886633;
-    padding: 3px 6px;
-    border-left: 2px solid rgba(255,200,80,0.3);
-    line-height: 1.4;
-  }
-
-  .log-item.mission { color: #ffaa44; border-left-color: #ffaa44; }
-
-  #danger-bar-container {
-    height: 6px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-top: 8px;
-  }
-
-  #danger-bar {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, #44ff44, #ffff44, #ff4444);
-    border-radius: 3px;
-    transition: width 0.3s;
-  }
-
-  .hint-text {
-    font-size: 10px;
-    color: #556;
-    line-height: 1.6;
-  }
-
-  .mission-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 6px;
-    border-radius: 6px;
-    font-size: 10px;
-    color: #556;
-    transition: all 0.3s;
-  }
-
-  .mission-item.cleared {
-    color: #ffd700;
-    background: rgba(255,215,0,0.08);
-  }
-
-  .mission-item.alert {
-    color: #ffaa44;
-    background: rgba(255,136,68,0.15);
-    box-shadow: 0 0 8px rgba(255,136,68,0.3);
-    animation: missionAlert 0.8s infinite alternate;
-  }
-
-  @keyframes missionAlert {
-    from { background: rgba(255,136,68,0.1); }
-    to   { background: rgba(255,136,68,0.28); }
-  }
-
-  .mission-check { font-size: 13px; min-width: 16px; text-align: center; }
-  .mission-name  { font-size: 11px; color: #7fddff; }
-  .mission-cond  { font-size: 9px; color: #556; margin-top: 1px; }
-  .mission-item.cleared .mission-name { color: #ffd700; }
-  .mission-item.alert   .mission-name { color: #ffcc66; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;
+       padding:40px 20px 80px}
+  main{max-width:720px;margin:0 auto}
+  h1{font-size:28px;line-height:1.3;margin:0 0 6px}
+  .sub{color:var(--mut);font-size:14px;margin:0 0 36px}
+  h2{font-size:19px;margin:38px 0 10px;padding-top:18px;border-top:1px solid var(--line)}
+  p,li{color:var(--fg)}
+  ul{padding-left:20px}
+  li{margin:6px 0}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:18px 0}
+  .box strong{color:var(--accent)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:15px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-weight:600;white-space:nowrap}
+  code{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:14px}
+  footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);color:var(--mut);font-size:14px}
+  a{color:var(--accent)}
+  .docnav{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 34px;padding:0 0 18px;
+           border-bottom:1px solid var(--line);font-size:15px}
+  .docnav b{font-weight:600;color:var(--fg)}
 </style>
 </head>
 <body>
+<main>
 
-<div id="game-wrapper">
-  <!-- Left Panel -->
-  <div id="left-panel">
-    <div class="panel-card">
-      <div id="score-label">점 수</div>
-      <div id="score-display">0</div>
-      <div id="danger-bar-container">
-        <div id="danger-bar"></div>
-      </div>
-    </div>
+<h1>개인정보 처리방침</h1>
+<p class="sub">WesternDuel · 최종 수정일 2026년 10월 1일</p>
 
-    <div class="panel-card">
-      <h3>다 음</h3>
-      <div id="next-display">
-        <span id="next-animal">🐭</span>
-        <div id="next-name">자 (子)</div>
-      </div>
-    </div>
+<nav class="docnav"><b>개인정보 처리방침</b> <a href="terms.html">이용약관</a> <a href="refund.html">청약철회 · 환불</a></nav>
 
-    <div class="panel-card">
-      <h3>현재 천간</h3>
-      <div id="current-gan">
-        <span id="gan-display">甲</span>
-        <div id="gan-name">갑 · 1번째</div>
-      </div>
-    </div>
-
-    <div class="panel-card">
-      <h3>미션 목록</h3>
-      <div id="mission-list"></div>
-    </div>
-  </div>
-
-  <!-- Canvas -->
-  <div id="canvas-container">
-    <canvas id="gameCanvas" width="400" height="600"></canvas>
-    <canvas id="drop-line" width="400" height="600"></canvas>
-    <div id="mission-overlay">
-      <div class="mission-title">🎊 미션 성공! 🎊</div>
-      <div class="mission-score" id="mission-score-text"></div>
-      <div class="mission-detail" id="mission-detail-text"></div>
-    </div>
-    <div id="combo-display"></div>
-    <div id="game-over">
-      <h2>⚠️ 게임 오버</h2>
-      <div id="final-score"></div>
-      <button id="restart-btn" onclick="restartGame()">다시 시작</button>
-    </div>
-  </div>
-
-  <!-- Right Panel -->
-  <div id="right-panel">
-    <div class="panel-card">
-      <h3>십이지신</h3>
-      <div class="zodiac-grid" id="zodiac-grid"></div>
-    </div>
-
-    <div class="panel-card">
-      <h3>천간 (十干)</h3>
-      <div class="gan-list" id="gan-list"></div>
-    </div>
-
-    <div class="panel-card">
-      <h3>미션 기록</h3>
-      <div id="mission-log">
-        <div class="log-item">합체하면 천간이 쌓입니다...</div>
-      </div>
-    </div>
-
-    <div class="panel-card">
-      <h3>도움말</h3>
-      <p class="hint-text">
-        <span style="color:#ffaa33">[ 마우스 ]</span><br>
-        이동: 조준 / 클릭: 드롭<br><br>
-        <span style="color:#ffaa33">[ 키보드 ]</span><br>
-        ← → : 좌우 이동<br>
-        Space / ↓ : 드롭<br><br>
-        같은 동물끼리 합치면 <span style="color:#7fddff">천간</span>이 쌓이고,<br>
-        <span style="color:#ffd700">천간+지지 조합</span> 완성 시 미션 성공!
-      </p>
-    </div>
-  </div>
+<div class="box">
+  <p style="margin:0"><strong>요약 — 개발자는 어떤 개인정보도 수집하지 않습니다.</strong><br>
+  계정도, 로그인도, 분석 도구도 없습니다. 게임 기록은 전부 사용자의 기기 안에만 남습니다.<br>
+  <strong>온라인 대전에서는 이용자가 직접 정한 이름과 칭호가 상대에게 보입니다</strong> — 아래 3항을 봐 주세요.<br>
+  다만 <strong>앱 안에 광고(Google AdMob)와 결제(Google Play 결제)가 들어 있습니다.</strong>
+  이 둘은 Google 이 직접 운영하며, 광고 식별자 등을 Google 이 수집합니다 — 아래 4항을 봐 주세요.<br>
+  또 <strong>온라인 대전에 참여하는 동안</strong>에는 상대와 연결하기 위해 IP 주소가 쓰입니다 — 아래 3항을 봐 주세요.</p>
 </div>
 
-<script>
-// =====================
-// DATA
-// =====================
-const ZODIAC = [
-  { id: 0, name: '자', hanja: '子', animal: '쥐', emoji: '🐭', radius: 15, color: '#888', mergeScore: 5 },
-  { id: 1, name: '축', hanja: '丑', animal: '소', emoji: '🐮', radius: 20, color: '#8B6914', mergeScore: 10 },
-  { id: 2, name: '인', hanja: '寅', animal: '호랑이', emoji: '🐯', radius: 25, color: '#FF8C00', mergeScore: 18 },
-  { id: 3, name: '묘', hanja: '卯', animal: '토끼', emoji: '🐰', radius: 30, color: '#FFB6C1', mergeScore: 28 },
-  { id: 4, name: '진', hanja: '辰', animal: '용', emoji: '🐲', radius: 36, color: '#228B22', mergeScore: 40 },
-  { id: 5, name: '사', hanja: '巳', animal: '뱀', emoji: '🐍', radius: 42, color: '#9370DB', mergeScore: 55 },
-  { id: 6, name: '오', hanja: '午', animal: '말', emoji: '🐴', radius: 48, color: '#D4842A', mergeScore: 72 },
-  { id: 7, name: '미', hanja: '未', animal: '양', emoji: '🐑', radius: 54, color: '#E8E8C8', mergeScore: 90 },
-  { id: 8, name: '신', hanja: '申', animal: '원숭이', emoji: '🐵', radius: 60, color: '#DAA520', mergeScore: 110 },
-  { id: 9, name: '유', hanja: '酉', animal: '닭', emoji: '🐔', radius: 66, color: '#FF6347', mergeScore: 132 },
-  { id: 10, name: '술', hanja: '戌', animal: '개', emoji: '🐶', radius: 72, color: '#8B4513', mergeScore: 156 },
-  { id: 11, name: '해', hanja: '亥', animal: '돼지', emoji: '🐷', radius: 76, color: '#FFB6C1', mergeScore: 200 },
-];
-
-const GAN = [
-  { char: '甲', name: '갑', num: 1, element: '木', color: '#66ff66' },
-  { char: '乙', name: '을', num: 2, element: '木', color: '#88ff44' },
-  { char: '丙', name: '병', num: 3, element: '火', color: '#ff6644' },
-  { char: '丁', name: '정', num: 4, element: '火', color: '#ff4422' },
-  { char: '戊', name: '무', num: 5, element: '土', color: '#ddaa44' },
-  { char: '己', name: '기', num: 6, element: '土', color: '#ccaa33' },
-  { char: '庚', name: '경', num: 7, element: '金', color: '#aaddff' },
-  { char: '辛', name: '신', num: 8, element: '金', color: '#88ccff' },
-  { char: '壬', name: '임', num: 9, element: '水', color: '#4488ff' },
-  { char: '癸', name: '계', num: 10, element: '水', color: '#2266ff' },
-];
-
-// 미션 정의: 천간idx(0-9) + 지지idx(0-11) → 특정 동물 N마리 소환
-let MISSIONS = [
-  { gan: 2, ji: 6, name: '병오(丙午)', desc: '화기(火氣)의 말', animal: 6, count: 3, bonus: 2000, emoji: '🔥🐴' },
-  { gan: 0, ji: 0, name: '갑자(甲子)', desc: '목기(木氣)의 쥐', animal: 0, count: 4, bonus: 1500, emoji: '🌿🐭' },
-  { gan: 5, ji: 4, name: '기진(己辰)', desc: '토기(土氣)의 용', animal: 4, count: 2, bonus: 1800, emoji: '🌍🐲' },
-  { gan: 8, ji: 9, name: '임유(壬酉)', desc: '수기(水氣)의 닭', animal: 9, count: 3, bonus: 2200, emoji: '💧🐔' },
-  { gan: 6, ji: 7, name: '경미(庚未)', desc: '금기(金氣)의 양', animal: 7, count: 3, bonus: 2500, emoji: '⚙️🐑' },
-];
-
-// =====================
-// MATTER.JS SETUP
-// =====================
-const { Engine, Render, Runner, Bodies, Body, World, Events, Composite } = Matter;
-
-const CANVAS_W = 400;
-const CANVAS_H = 600;
-const WALL_T = 20;
-const DROP_Y = 60;
-
-let engine, world, runner;
-let balls = [];
-let score = 0;
-let currentZodiacIdx = 0;
-let nextZodiacIdx = 0;
-let ganStack = []; // accumulated gan chars (indices)
-let ganIdx = 0; // current gan index (0-9 cycling)
-let mergeCount = 0;
-let isDropping = false;
-let mouseX = CANVAS_W / 2;
-let gameOver = false;
-let missionActive = false;
-let missionTimer = null;
-let countByZodiac = new Array(12).fill(0);
-let clearedMissions = new Set();
-let sparkTime = 0;
-let dangerFrames = 0;       // 위험 상태 지속 프레임 수
-const DANGER_LIMIT = 180;   // 3초 (60fps 기준)
-
-// Canvas for drawing
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const dropCanvas = document.getElementById('drop-line');
-const dropCtx = dropCanvas.getContext('2d');
-
-function initPhysics() {
-  engine = Engine.create({ gravity: { y: 1.5 } });
-  world = engine.world;
-
-  // Walls
-  const ground = Bodies.rectangle(CANVAS_W/2, CANVAS_H + WALL_T/2, CANVAS_W, WALL_T, { isStatic: true, label: 'ground' });
-  const wallL = Bodies.rectangle(-WALL_T/2, CANVAS_H/2, WALL_T, CANVAS_H*2, { isStatic: true, label: 'wall' });
-  const wallR = Bodies.rectangle(CANVAS_W + WALL_T/2, CANVAS_H/2, WALL_T, CANVAS_H*2, { isStatic: true, label: 'wall' });
-  World.add(world, [ground, wallL, wallR]);
-
-  Events.on(engine, 'collisionStart', handleCollision);
-
-  runner = Runner.create();
-  Runner.run(runner, engine);
-}
-
-function handleCollision(event) {
-  const pairs = event.pairs;
-  for (let pair of pairs) {
-    const { bodyA, bodyB } = pair;
-    if (bodyA.label && bodyB.label &&
-        bodyA.label.startsWith('zodiac_') && bodyB.label.startsWith('zodiac_')) {
-      const idxA = parseInt(bodyA.label.split('_')[1]);
-      const idxB = parseInt(bodyB.label.split('_')[1]);
-      if (idxA === idxB && !bodyA.merging && !bodyB.merging) {
-        bodyA.merging = true;
-        bodyB.merging = true;
-        scheduleMerge(bodyA, bodyB, idxA);
-      }
-    }
-  }
-}
-
-function scheduleMerge(bodyA, bodyB, zodiacIdx) {
-  setTimeout(() => {
-    if (!balls.includes(bodyA) && !balls.includes(bodyB)) return; // already removed
-    const posA = bodyA.position;
-    const posB = bodyB.position;
-    const midX = (posA.x + posB.x) / 2;
-    const midY = (posA.y + posB.y) / 2;
-
-    World.remove(world, bodyA);
-    World.remove(world, bodyB);
-    balls = balls.filter(b => b !== bodyA && b !== bodyB);
-
-    countByZodiac[zodiacIdx] = Math.max(0, countByZodiac[zodiacIdx] - 2);
-
-    const mergeScore = ZODIAC[zodiacIdx].mergeScore;
-    addScore(mergeScore, midX, midY);
-    showParticles(midX, midY, ZODIAC[zodiacIdx].color);
-
-    // 천간 진행
-    ganIdx = (ganIdx + 1) % 10;
-    ganStack.push(ganIdx);
-    updateGanDisplay();
-
-    // 다음 동물 (해(11) 합치면 사라짐 = 최고 등급)
-    if (zodiacIdx < 11) {
-      const newIdx = zodiacIdx + 1;
-      spawnBall(midX, midY, newIdx, true);
-      countByZodiac[newIdx]++;
-    }
-    // 합체 후 미션 체크
-    checkMissionTrigger();
-
-    mergeCount++;
-    // 합체 후 미션 체크
-    checkMissionTrigger();
-    checkMission(zodiacIdx + 1, midX, midY);
-  }, 50);
-}
-
-function spawnBall(x, y, zodiacIdx, fromMerge = false) {
-  const z = ZODIAC[zodiacIdx];
-  const ball = Bodies.circle(x, y, z.radius, {
-    restitution: 0.3,
-    friction: 0.5,
-    density: 0.002,
-    label: `zodiac_${zodiacIdx}`,
-  });
-  ball.zodiacIdx = zodiacIdx;
-  if (fromMerge) {
-    Body.setVelocity(ball, { x: (Math.random()-0.5)*2, y: -3 });
-  }
-  World.add(world, ball);
-  balls.push(ball);
-  return ball;
-}
-
-function dropBall(x) {
-  if (isDropping || gameOver || missionActive) return;
-  isDropping = true;
-
-  const z = ZODIAC[currentZodiacIdx];
-  const clampedX = Math.max(z.radius + 5, Math.min(CANVAS_W - z.radius - 5, x));
-  const droppedZodiac = currentZodiacIdx;
-  const ball = spawnBall(clampedX, DROP_Y, droppedZodiac);
-  countByZodiac[droppedZodiac]++;
-  Body.setVelocity(ball, { x: 0, y: 5 });
-
-  // 드롭 직후 미션 조건 체크
-  //checkMissionTrigger(droppedZodiac);
-
-  currentZodiacIdx = nextZodiacIdx;
-  nextZodiacIdx = Math.floor(Math.random() * 6); // drop 0~5
-  updateNextDisplay();
-  updateZodiacGrid();
-
-  setTimeout(() => { isDropping = false; }, 600);
-}
-
-// =====================
-// MISSION CHECK
-// =====================
-function checkMissionTrigger(droppedZodiac) {
-  for (let i = 0; i < MISSIONS.length; i++) {
-    const mission = MISSIONS[i];
-    if (clearedMissions.has(i)) continue;
-    // 현재 천간 일치 + 드롭한 동물이 미션 대상 + 필드 수 충족
-    if (ganIdx === mission.gan) {
-      const count = countBallsOnField(mission.animal);
-      if (count >= mission.count) {
-        triggerMission(mission, i, count);
-        return;
-      }
-    }
-  }
-}
-
-function generateMission() {
-  const gan = Math.floor(Math.random() * 10);
-  const animal = Math.floor(Math.random() * 10); // 0~9 (해는 제외해 난이도 조절)
-  const count = 2 + Math.floor(Math.random() * 3); // 2~4마리
-  const bonus = Math.round((1200 + animal * 150 + count * 250) / 100) * 100;
-  return {
-    gan, ji: animal,
-    name: `${GAN[gan].char}${ZODIAC[animal].hanja}(${GAN[gan].name}${ZODIAC[animal].name})`,
-    desc: `${GAN[gan].element}기(${GAN[gan].element}氣)의 ${ZODIAC[animal].animal}`,
-    animal, count, bonus,
-    emoji: ZODIAC[animal].emoji,
-  };
-}
-
-function countBallsOnField(zodiacIdx) {
-  return balls.filter(b => b.zodiacIdx === zodiacIdx).length;
-}
-
-function triggerMission(mission, missionIdx, count) {
-  missionActive = true;
-  const bonus = mission.bonus + count * 100;
-  addScore(bonus, CANVAS_W/2, CANVAS_H/2);
-
-  document.getElementById('mission-score-text').textContent = `+${bonus.toLocaleString()} 점 획득!`;
-  document.getElementById('mission-detail-text').innerHTML =
-    `${mission.emoji} ${mission.name} 달성!<br>${mission.desc}<br>${ZODIAC[mission.animal].emoji} ${ZODIAC[mission.animal].animal} ${count}마리 소환!`;
-
-  document.getElementById('mission-overlay').classList.add('show');
-  addLog(`🎊 ${mission.name} 미션! +${bonus}점`, true);
-
-  // 미션 클리어 처리 → 오버레이 닫힌 후 새 미션으로 교체
-  clearedMissions.add(missionIdx);
-  updateMissionList();
-
-  // Spawn extra animals for the mission
-  for (let i = 0; i < mission.count; i++) {
-    setTimeout(() => {
-      const rx = 60 + Math.random() * 280;
-      spawnBall(rx, DROP_Y + i * 30, mission.animal, true);
-      countByZodiac[mission.animal]++;
-    }, i * 200);
-  }
-
-  if (missionTimer) clearTimeout(missionTimer);
-  missionTimer = setTimeout(() => {
-    document.getElementById('mission-overlay').classList.remove('show');
-    missionActive = false;
-    ganStack = [];
-    // 새 미션으로 교체
-    MISSIONS[missionIdx] = generateMission();
-    clearedMissions.delete(missionIdx);
-    buildMissionList();
-    addLog(`✨ 새 미션 등장: ${MISSIONS[missionIdx].name}`);
-  }, 3000);
-}
-
-function checkMission(newZodiacIdx, x, y) {
-  // simple visual feedback
-  if (newZodiacIdx > 0) {
-    const z = ZODIAC[newZodiacIdx - 1];
-    addLog(`${z.emoji} ${z.animal} + ${z.emoji} → ${ZODIAC[Math.min(newZodiacIdx, 11)].emoji}`);
-  }
-}
-
-// =====================
-// DRAWING
-// =====================
-function drawGame() {
-  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-
-  // Danger zone line (위험 시 더 밝게)
-  const dangerRatio = Math.min(dangerFrames / DANGER_LIMIT, 1);
-  const lineAlpha = 0.3 + dangerRatio * 0.7;
-  ctx.strokeStyle = `rgba(255,50,50,${lineAlpha})`;
-  ctx.setLineDash([6, 4]);
-  ctx.lineWidth = 1 + dangerRatio * 2;
-  ctx.beginPath();
-  ctx.moveTo(0, DROP_Y + 20);
-  ctx.lineTo(CANVAS_W, DROP_Y + 20);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.lineWidth = 1;
-
-  // 위험 카운트다운 표시
-  if (dangerFrames > 60) {
-    const remaining = Math.ceil((DANGER_LIMIT - dangerFrames) / 60);
-    ctx.save();
-    ctx.fillStyle = `rgba(255,80,80,${0.4 + dangerRatio * 0.6})`;
-    ctx.font = `bold 14px sans-serif`;
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.fillText(`위험! ${remaining}초`, CANVAS_W - 8, DROP_Y + 24);
-    ctx.restore();
-  }
-
-  // 현재 천간과 일치하는 미션의 대상 동물 인덱스 집합
-  sparkTime += 0.04;
-  const sparkleTargets = new Set();
-  MISSIONS.forEach((m, i) => {
-    if (ganIdx === m.gan && !clearedMissions.has(i)) sparkleTargets.add(m.animal);
-  });
-
-  // Draw balls
-  for (let ball of balls) {
-    const z = ZODIAC[ball.zodiacIdx];
-    const pos = ball.position;
-    const angle = ball.angle;
-
-    ctx.save();
-    ctx.translate(pos.x, pos.y);
-    ctx.rotate(angle);
-
-    // Glow
-    const grd = ctx.createRadialGradient(0, 0, z.radius * 0.2, 0, 0, z.radius);
-    grd.addColorStop(0, hexToRgba(z.color, 0.8));
-    grd.addColorStop(1, hexToRgba(z.color, 0.3));
-    ctx.beginPath();
-    ctx.arc(0, 0, z.radius, 0, Math.PI * 2);
-    ctx.fillStyle = grd;
-    ctx.fill();
-    ctx.strokeStyle = hexToRgba(z.color, 0.8);
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Emoji
-    ctx.font = `${z.radius * 1.1}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(z.emoji, 0, 2);
-
-    ctx.restore();
-
-    // 반짝이 이펙트 (world 좌표에서 그림)
-    if (sparkleTargets.has(ball.zodiacIdx)) {
-      drawSparkle(ctx, pos.x, pos.y, z.radius, sparkTime + ball.id * 0.4);
-    }
-  }
-
-  // Draw current ball ghost at mouse (크기 원 + 이모지)
-  if (!isDropping && !gameOver && !missionActive) {
-    const z = ZODIAC[currentZodiacIdx];
-    const clampedX = Math.max(z.radius + 5, Math.min(CANVAS_W - z.radius - 5, mouseX));
-
-    // 크기 원형 미리보기
-    const grd = ctx.createRadialGradient(clampedX, DROP_Y, z.radius * 0.1, clampedX, DROP_Y, z.radius);
-    grd.addColorStop(0, hexToRgba(z.color, 0.45));
-    grd.addColorStop(1, hexToRgba(z.color, 0.05));
-    ctx.beginPath();
-    ctx.arc(clampedX, DROP_Y, z.radius, 0, Math.PI * 2);
-    ctx.fillStyle = grd;
-    ctx.fill();
-    ctx.strokeStyle = hexToRgba(z.color, 0.5);
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // 이모지
-    ctx.globalAlpha = 0.85;
-    ctx.font = `${z.radius * 1.1}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(z.emoji, clampedX, DROP_Y + 1);
-    ctx.globalAlpha = 1;
-  }
-
-  // Danger bar
-  const topmost = balls.reduce((min, b) => Math.min(min, b.position.y - ZODIAC[b.zodiacIdx].radius), CANVAS_H);
-  const danger = Math.max(0, Math.min(100, (DROP_Y + 60 - topmost) / (DROP_Y + 60 - DROP_Y) * 100));
-  document.getElementById('danger-bar').style.width = Math.max(0, Math.min(100, (1 - (topmost - DROP_Y) / (CANVAS_H - DROP_Y)) * 100)) + '%';
-
-  // Game over check: 위험선 위에 정지한 공이 3초 유지될 때
-  if (!gameOver) {
-    const inDanger = balls.some(b =>
-      b.position.y - ZODIAC[b.zodiacIdx].radius < DROP_Y + 20 && b.speed < 0.5
-    );
-    if (inDanger) {
-      dangerFrames++;
-      if (dangerFrames >= DANGER_LIMIT) triggerGameOver();
-    } else {
-      dangerFrames = 0;
-    }
-  }
-
-  requestAnimationFrame(drawGame);
-}
-
-// Drop line
-function drawDropLine(x) {
-  dropCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-  if (isDropping || gameOver || missionActive) return;
-  const z = ZODIAC[currentZodiacIdx];
-  const clampedX = Math.max(z.radius + 5, Math.min(CANVAS_W - z.radius - 5, x));
-
-  dropCtx.strokeStyle = 'rgba(255,220,150,0.2)';
-  dropCtx.setLineDash([4, 6]);
-  dropCtx.lineWidth = 1;
-  dropCtx.beginPath();
-  dropCtx.moveTo(clampedX, DROP_Y + z.radius);
-  dropCtx.lineTo(clampedX, CANVAS_H);
-  dropCtx.stroke();
-  dropCtx.setLineDash([]);
-}
-
-// =====================
-// SCORE & UI
-// =====================
-function addScore(amount, x, y) {
-  score += amount;
-  document.getElementById('score-display').textContent = score.toLocaleString();
-
-  if (x && y) {
-    const container = document.getElementById('canvas-container');
-    const el = document.createElement('div');
-    el.className = 'combo-float';
-    el.textContent = `+${amount}`;
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    container.appendChild(el);
-    setTimeout(() => el.remove(), 1200);
-  }
-}
-
-function updateGanDisplay() {
-  const g = GAN[ganIdx];
-  document.getElementById('gan-display').textContent = g.char;
-  document.getElementById('gan-display').style.color = g.color;
-  document.getElementById('gan-name').textContent = `${g.name} · ${g.num}번째`;
-  updateMissionList();
-}
-
-function updateNextDisplay() {
-  const z = ZODIAC[nextZodiacIdx];
-  document.getElementById('next-animal').textContent = z.emoji;
-  document.getElementById('next-name').textContent = `${z.name}(${z.hanja}) · ${z.animal}`;
-}
-
-function updateZodiacGrid() {
-  const grid = document.getElementById('zodiac-grid');
-  grid.innerHTML = '';
-  ZODIAC.forEach((z, i) => {
-    const div = document.createElement('div');
-    div.className = 'zodiac-item' + (i === currentZodiacIdx ? ' active' : '');
-    div.innerHTML = `<span class="emoji">${z.emoji}</span><span class="zname">${z.name}</span><span class="znum">${z.hanja}</span>`;
-    grid.appendChild(div);
-  });
-}
-
-function buildGanList() {
-  const list = document.getElementById('gan-list');
-  list.innerHTML = '';
-  GAN.forEach(g => {
-    const div = document.createElement('div');
-    div.className = 'gan-item';
-    div.innerHTML = `<span class="gan-char" style="color:${g.color}">${g.char}</span><span class="gan-desc">${g.name}·${g.element}</span><span class="gan-num">${g.num}</span>`;
-    list.appendChild(div);
-  });
-}
-
-function buildMissionList() {
-  const list = document.getElementById('mission-list');
-  list.innerHTML = '';
-  MISSIONS.forEach((m, i) => {
-    const div = document.createElement('div');
-    div.id = `mission-item-${i}`;
-    div.className = 'mission-item';
-    div.innerHTML = `
-      <span class="mission-check">⬜</span>
-      <div>
-        <div class="mission-name">${m.name}</div>
-        <div class="mission-cond">${ZODIAC[m.animal].emoji}×${m.count} &nbsp;+${m.bonus.toLocaleString()}점</div>
-      </div>`;
-    list.appendChild(div);
-  });
-  updateMissionList();
-}
-
-function updateMissionList() {
-  MISSIONS.forEach((m, i) => {
-    const item = document.getElementById(`mission-item-${i}`);
-    if (!item) return;
-    const cleared = clearedMissions.has(i);
-    const isAlert = !cleared && ganIdx === m.gan;
-    item.className = 'mission-item' + (cleared ? ' cleared' : '') + (isAlert ? ' alert' : '');
-    item.querySelector('.mission-check').textContent = cleared ? '✅' : (isAlert ? '🔔' : '⬜');
-  });
-}
-
-function addLog(text, isMission = false) {
-  const log = document.getElementById('mission-log');
-  const item = document.createElement('div');
-  item.className = 'log-item' + (isMission ? ' mission' : '');
-  item.textContent = text;
-  log.insertBefore(item, log.firstChild);
-  while (log.children.length > 20) log.removeChild(log.lastChild);
-}
-
-// =====================
-// PARTICLES
-// =====================
-function drawSparkle(ctx, x, y, radius, time) {
-  const pulse = 0.5 + 0.5 * Math.sin(time * 3);
-  const numStars = 6;
-
-  // 외곽 발광 링
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(x, y, radius + 4 + pulse * 5, 0, Math.PI * 2);
-  ctx.strokeStyle = `rgba(255,220,50,${0.25 + pulse * 0.45})`;
-  ctx.lineWidth = 2 + pulse * 2;
-  ctx.stroke();
-
-  // 회전하는 별 파티클
-  for (let i = 0; i < numStars; i++) {
-    const angle = (i / numStars) * Math.PI * 2 + time * 1.8;
-    const dist = radius + 7 + pulse * 7;
-    const sx = x + Math.cos(angle) * dist;
-    const sy = y + Math.sin(angle) * dist;
-    const size = 2 + pulse * 2;
-
-    ctx.save();
-    ctx.translate(sx, sy);
-    ctx.rotate(angle + time * 2);
-    ctx.fillStyle = `rgba(255,230,80,${0.5 + pulse * 0.5})`;
-    ctx.beginPath();
-    ctx.moveTo(0, -size);
-    ctx.lineTo(size * 0.35, 0);
-    ctx.lineTo(0, size);
-    ctx.lineTo(-size * 0.35, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-  ctx.restore();
-}
-
-function showParticles(x, y, color) {
-  // Simple canvas burst
-  for (let i = 0; i < 8; i++) {
-    setTimeout(() => {
-      ctx.save();
-      const angle = (i / 8) * Math.PI * 2;
-      const dist = 20 + Math.random() * 20;
-      ctx.globalAlpha = 0.7;
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x + Math.cos(angle)*dist, y + Math.sin(angle)*dist, 4, 0, Math.PI*2);
-      ctx.fill();
-      ctx.restore();
-    }, i * 10);
-  }
-}
-
-function triggerGameOver() {
-  gameOver = true;
-  document.getElementById('final-score').textContent = `최종 점수: ${score.toLocaleString()}점`;
-  document.getElementById('game-over').classList.add('show');
-  Runner.stop(runner);
-}
-
-function restartGame() {
-  // Reset
-  World.clear(world);
-  Engine.clear(engine);
-  balls = [];
-  score = 0;
-  ganIdx = 0;
-  ganStack = [];
-  mergeCount = 0;
-  isDropping = false;
-  gameOver = false;
-  missionActive = false;
-  countByZodiac = new Array(12).fill(0);
-  clearedMissions = new Set();
-  dangerFrames = 0;
-
-  document.getElementById('score-display').textContent = '0';
-  document.getElementById('game-over').classList.remove('show');
-  document.getElementById('mission-overlay').classList.remove('show');
-  document.getElementById('mission-log').innerHTML = '<div class="log-item">합체하면 천간이 쌓입니다...</div>';
-  buildMissionList();
-
-  currentZodiacIdx = Math.floor(Math.random() * 5);
-  nextZodiacIdx = Math.floor(Math.random() * 5);
-
-  initPhysics();
-  updateNextDisplay();
-  updateZodiacGrid();
-  updateGanDisplay();
-
-  Runner.run(runner, engine);
-}
-
-// =====================
-// INPUT
-// =====================
-dropCanvas.addEventListener('mousemove', (e) => {
-  const rect = dropCanvas.getBoundingClientRect();
-  mouseX = e.clientX - rect.left;
-  drawDropLine(mouseX);
-});
-
-dropCanvas.addEventListener('click', (e) => {
-  const rect = dropCanvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  dropBall(x);
-});
-
-dropCanvas.addEventListener('touchmove', (e) => {
-  e.preventDefault();
-  const rect = dropCanvas.getBoundingClientRect();
-  mouseX = e.touches[0].clientX - rect.left;
-  drawDropLine(mouseX);
-}, { passive: false });
-
-dropCanvas.addEventListener('touchend', (e) => {
-  e.preventDefault();
-  const rect = dropCanvas.getBoundingClientRect();
-  const x = e.changedTouches[0].clientX - rect.left;
-  dropBall(x);
-});
-
-// 키보드 조작
-const KEY_STEP = 10;
-document.addEventListener('keydown', (e) => {
-  if (gameOver || missionActive) return;
-  if (e.key === 'ArrowLeft') {
-    mouseX = Math.max(0, mouseX - KEY_STEP);
-    drawDropLine(mouseX);
-  } else if (e.key === 'ArrowRight') {
-    mouseX = Math.min(CANVAS_W, mouseX + KEY_STEP);
-    drawDropLine(mouseX);
-  } else if (e.key === ' ' || e.key === 'ArrowDown') {
-    e.preventDefault();
-    dropBall(mouseX);
-  }
-});
-
-// =====================
-// UTILS
-// =====================
-function hexToRgba(hex, alpha) {
-  if (!hex || hex.length < 4) return `rgba(128,128,128,${alpha})`;
-  let r, g, b;
-  if (hex.length === 4) {
-    r = parseInt(hex[1]+hex[1],16);
-    g = parseInt(hex[2]+hex[2],16);
-    b = parseInt(hex[3]+hex[3],16);
-  } else {
-    r = parseInt(hex.slice(1,3),16);
-    g = parseInt(hex.slice(3,5),16);
-    b = parseInt(hex.slice(5,7),16);
-  }
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-// =====================
-// INIT
-// =====================
-function init() {
-  currentZodiacIdx = Math.floor(Math.random() * 5);
-  nextZodiacIdx = Math.floor(Math.random() * 5);
-  initPhysics();
-  buildGanList();
-  buildMissionList();
-  updateNextDisplay();
-  updateZodiacGrid();
-  updateGanDisplay();
-  drawGame();
-}
-
-init();
-</script>
+<h2>1. 수집하는 개인정보</h2>
+<p><strong>개발자가 직접 수집하는 개인정보는 없습니다.</strong> 이 앱은 이름·이메일·전화번호·주소·
+생년월일·연락처·사진·정밀 위치 등을 묻지도, 저장하지도, 서버로 보내지도 않습니다.
+계정을 만들 일도, 로그인할 일도 없습니다.</p>
+<p>개발자에게 전달되는 이용자별 기록은 존재하지 않습니다. 개발자가 보는 것은
+Google 이 제공하는 <strong>합산 통계</strong>(설치 수, 광고 노출 수, 매출 합계 등)뿐이며,
+여기에서 특정 이용자를 식별할 수 없습니다.</p>
+<p>다만 앱 안에 포함된 Google 의 광고·결제 기능이 동작하면서
+<strong>Google 이</strong> 광고 식별자와 기기 정보 등을 수집합니다. 무엇이 어떻게 쓰이는지는
+아래 4항에 적었습니다.</p>
+
+<h2>2. 기기에 저장되는 것</h2>
+<p>게임 진행을 이어가기 위해 아래 정보를 <strong>사용자 기기 안에만</strong> 저장합니다.
+이 정보는 앱 밖으로 나가지 않으며, 개발자를 포함한 누구도 열람할 수 없습니다.</p>
+
+<table>
+  <tr><th>저장 항목</th><td>최고 기록, 보유 현상금, 구매한 무기와 강화, 진행 중인 여정, 소리·진동·화면 설정,<br>
+      그리고 <strong>이용자가 직접 정한 총잡이 이름 · 칭호 · 번호</strong></td></tr>
+  <tr><th>총잡이 번호</th><td>앱이 기기에서 한 번 만드는 8자리 무작위 글자입니다. 이름·연락처 등
+      실제 신원과는 아무 관계가 없고, <strong>상대방에게 전송되지 않습니다.</strong>
+      문의하실 때 어느 기기인지 알아보는 용도로만 씁니다</td></tr>
+  <tr><th>저장 위치</th><td>앱 내부 저장소 (<code>localStorage</code>)</td></tr>
+  <tr><th>보관 기간</th><td>앱을 삭제할 때까지. 앱을 삭제하면 함께 지워집니다</td></tr>
+  <tr><th>삭제 방법</th><td>기기 설정 → 앱 → WesternDuel → 저장공간 → 데이터 삭제</td></tr>
+</table>
+
+<h2>3. 네트워크 사용</h2>
+<p><strong>혼자 하는 모드(현상금 여정 · 연습 결투)는 인터넷 없이 끝까지 즐길 수 있습니다.</strong>
+모든 그래픽·소리·코드가 앱 안에 들어 있습니다. 이 모드가 통신하는 경우는
+<strong>이용자가 광고를 직접 부를 때</strong>(4항)뿐이며, 게임 내용은 어디로도 전송되지 않습니다.</p>
+
+<p><strong>온라인 대전</strong>에서는 상대와 잇기 위해 네트워크를 씁니다. 이때 오가는 것은 아래가 전부입니다.</p>
+<table>
+  <tr><th>방 코드</th><td>무작위 4글자. 방을 닫으면 사라집니다</td></tr>
+  <tr><th>연결 정보</th><td>상대와 연결하기 위한 기술 정보(SDP·ICE). <strong>여기에 IP 주소가 포함됩니다</strong></td></tr>
+  <tr><th>조작 신호</th><td>총을 뽑았다 · 쐈다 · 굴렀다 와 그 시각, 왕복 지연 시간</td></tr>
+  <tr><th>점수</th><td>현재 판의 점수</td></tr>
+  <tr><th>이름 · 칭호</th><td>이용자가 설정에서 직접 정한 것. <strong>상대 화면에 그대로 보입니다</strong></td></tr>
+</table>
+
+<div class="box">
+  <p style="margin:0"><strong>이름과 칭호에 대해.</strong><br>
+  온라인 대전에 들어가면 설정에 적어 둔 이름과 칭호가 <strong>상대 화면에 보입니다.</strong>
+  무엇을 적을지는 전적으로 이용자가 정하며, 앱은 아무것도 미리 채워 두지 않습니다
+  (적지 않으면 「이름 없는 총잡이」 로 보입니다).<br>
+  <strong>본명이나 전화번호처럼 알려지면 곤란한 것은 적지 마세요.</strong>
+  이름과 칭호는 상대의 기기에 잠깐 떠 있을 뿐, 서버에는 저장되지 않습니다.<br><br>
+  <strong>총잡이 번호는 상대에게 보내지 않습니다.</strong> 기기 안에만 있고,
+  문의하실 때 어느 기기인지 알아보는 용도로만 씁니다.</p>
+</div>
+
+<div class="box">
+  <p style="margin:0"><strong>IP 주소에 대해 — 분명히 말씀드립니다.</strong><br>
+  온라인 대전은 두 사람의 기기를 <em>직접</em> 연결해 지연을 줄입니다(WebRTC).
+  이 방식에서는 <strong>상대방의 기기가 내 IP 주소를 알게 됩니다.</strong> 반대도 마찬가지입니다.
+  이는 인터넷에서 두 지점을 직접 잇기 위한 기술적 전제이며, 다른 개인정보는 함께 전달되지 않습니다.<br><br>
+  직접 연결이 되지 않는 회선에서는 <strong>중계 서버를 거쳐</strong> 붙습니다.
+  이 경우에는 상대에게 IP 주소가 노출되지 않습니다.</p>
+</div>
+
+<p><strong>서버는 무엇을 보관하나요 — 아무것도 보관하지 않습니다.</strong>
+신호 서버는 두 사람을 이어주고 판정을 중계할 뿐, IP 주소·방 코드·경기 결과를 포함해
+어떤 것도 디스크에 기록하거나 데이터베이스에 저장하지 않습니다.
+방이 닫히면 그 방의 정보는 메모리에서 즉시 사라집니다.
+<strong>계정도 로그인도 없고 서버가 아무것도 적어 두지 않으므로, 어떤 기록도 특정 개인과
+연결되지 않습니다.</strong> 이름과 칭호는 중계되는 동안 메모리를 지나갈 뿐 저장되지 않습니다.</p>
+
+<p>온라인 대전에는 <strong>채팅·음성·이미지 전송 기능이 없습니다.</strong>
+상대와 주고받을 수 있는 것은 총을 뽑고 쏘는 조작 신호뿐입니다.</p>
+
+<p>연결 경로를 찾기 위해 Google 이 운영하는 공개 STUN 서버
+(<code>stun.l.google.com</code>)에 접속합니다. 이 서버는 기기의 공개 IP 주소를 알려주는
+역할만 하며, 게임 내용은 전달되지 않습니다.</p>
+
+<h2>4. 제3자 도구 — 광고와 결제</h2>
+<p>이 앱에는 <strong>Google 의 도구 두 가지</strong>가 들어 있습니다. 분석 도구(Analytics),
+크래시 리포터, 소셜 로그인, 외부 광고 중개 네트워크는 포함되어 있지 않습니다.</p>
+
+<table>
+  <tr>
+    <th>Google AdMob<br>(광고)</th>
+    <td>
+      <strong>언제</strong> — 이용자가 <em>직접 「광고 보기」를 누를 때</em>(보상형 광고)와,
+      여정이 끝난 뒤 가끔(전면 광고) 나옵니다. 게임 도중에 끼어들지 않습니다.<br>
+      <strong>무엇을</strong> — Google 이 광고 식별자(AAID), 기기·앱 정보, 대략적인 위치(IP 기반),
+      광고 상호작용 기록을 수집합니다. 광고를 고르고, 중복 노출을 막고, 부정 클릭을 걸러내는 데 쓰입니다.<br>
+      <strong>누가</strong> — 이 정보는 <strong>Google 이 수집하며 개발자에게 전달되지 않습니다.</strong><br>
+      <strong>끄는 법</strong> — 기기 설정 → 개인정보 보호 → 광고 → 「광고 ID 삭제」 로 맞춤 광고를 끌 수 있습니다.
+      앱 안의 「광고 제거」를 구매하면 광고 자체가 나오지 않습니다.<br>
+      정책: <a href="https://policies.google.com/technologies/ads">policies.google.com/technologies/ads</a>
+    </td>
+  </tr>
+  <tr>
+    <th>Google Play 결제</th>
+    <td>
+      「광고 제거」와 금화 상품을 살 때만 동작합니다. 결제는 <strong>전부 Google Play 안에서</strong> 이루어지며,
+      <strong>앱과 개발자는 카드번호·계좌·주소 등 어떤 결제 정보도 보지 못합니다.</strong>
+      앱이 Google 로부터 받는 것은 「이 상품을 샀다/안 샀다」 뿐이고, 그 결과는 기기 안에만 저장됩니다.<br>
+      정책: <a href="https://policies.google.com/privacy">policies.google.com/privacy</a>
+    </td>
+  </tr>
+</table>
+
+<p>그 밖에 제3자에게 제공되는 개인정보는 없습니다. 위 3항의 공개 STUN 서버 접속은
+연결 경로를 찾기 위한 것으로, 게임 내용이나 식별 정보를 전달하지 않습니다.</p>
+
+<h2>5. 아동의 개인정보</h2>
+<p>이 앱은 어린이를 주 대상으로 만들어지지 않았으며, 개발자는 어떤 이용자로부터도
+개인정보를 수집하지 않습니다. 만 14세 미만 아동으로부터 개발자가 수집하는 정보 또한 없습니다.</p>
+<p>다만 4항의 광고는 Google 이 운영합니다. 어린이가 쓰는 기기라면 보호자께서
+기기 설정에서 광고 ID 를 끄시거나, Google Family Link 등으로 관리하시기를 권합니다.</p>
+
+<h2>6. 권한</h2>
+<table>
+  <tr><th>인터넷</th><td>온라인 대전과 광고를 불러오는 데 쓰입니다. 혼자 하는 모드는 광고를 보지 않는 한 통신하지 않습니다</td></tr>
+  <tr><th>진동</th><td>결투 신호를 손끝으로 알리는 데만 쓰이며, 게임 안에서 끌 수 있습니다</td></tr>
+  <tr><th>광고 ID</th><td>Google AdMob 이 광고를 고르고 중복 노출을 막는 데 씁니다 (4항)</td></tr>
+  <tr><th>인앱 결제</th><td>「광고 제거」·금화 상품 구매에만 쓰입니다 (4항)</td></tr>
+</table>
+<p>카메라·마이크·정밀 위치·연락처·저장소·전화 등 민감한 권한은 요구하지 않습니다.</p>
+
+<h2>7. 이용자의 권리</h2>
+<p>수집하는 개인정보가 없으므로 열람·정정·삭제를 요청할 대상 정보가 존재하지 않습니다.
+기기에 저장된 게임 기록은 위 2항의 방법으로 사용자가 직접 언제든 삭제할 수 있습니다.</p>
+
+<h2>8. 방침 변경</h2>
+<p>이 방침이 바뀌면 이 페이지에서 개정 내용과 날짜를 알립니다.
+개인정보를 수집하게 되는 변경이 생길 경우, 앱 안에서 사전에 고지하고 동의를 받겠습니다.</p>
+
+<h2>9. 문의</h2>
+<p>개인정보 처리에 관한 문의는 아래로 연락해 주세요.</p>
+<table>
+  <tr><th>개발자</th><td>Jerome</td></tr>
+  <tr><th>이메일</th><td><a href="mailto:jerome121431@gmail.com">jerome121431@gmail.com</a></td></tr>
+</table>
+
+<footer>
+  WesternDuel · 개인정보 처리방침 · 2026년 9월 16일 제정 · 2026년 10월 1일 개정
+</footer>
+
+</main>
 </body>
 </html>
